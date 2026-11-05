@@ -1,0 +1,16 @@
+[package]
+name = "openexao-cli"
+description = "Open-ExAO en ligne de commande : ouvre un CSV ou un projet, ajoute des colonnes calculées, affiche ou exporte"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "openexao"
+path = "src/main.rs"
+
+[dependencies]
+openexao-core = { path = "../core" }
+
+[lints]
+workspace = true

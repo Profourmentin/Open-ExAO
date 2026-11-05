@@ -1,0 +1,445 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Open-ExAO</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #ffffff; --fg: #1d2330; --muted: #5b6475; --line: #d5dae3; --head: #f1f4f9;
+    --calc: #eaf1fd; --accent: #1f5fd1; --accent-fg: #ffffff; --err: #b3261e; --err-bg: #fdecea;
+    --ok: #17703f; --shadow: 0 6px 24px rgba(20, 30, 50, .18);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14181f; --fg: #e6e9ef; --muted: #9aa3b5; --line: #2c3441; --head: #1b212b;
+      --calc: #172540; --accent: #7aa7ff; --accent-fg: #0b1220; --err: #ff9a90; --err-bg: #3a1f1f;
+      --ok: #6fd49a; --shadow: 0 6px 24px rgba(0, 0, 0, .5);
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    display: flex; flex-direction: column; background: var(--bg); color: var(--fg);
+    font: 14px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  button, input, textarea { font: inherit; color: inherit; }
+  button {
+    padding: 5px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); cursor: pointer;
+  }
+  button:hover { background: var(--head); }
+  button.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+  button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  header {
+    display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; padding: 10px 16px;
+    border-bottom: 1px solid var(--line); background: var(--head);
+  }
+  .brand { font-weight: 700; letter-spacing: .2px; }
+  .brand small { font-weight: 400; color: var(--muted); }
+  #title { min-width: 220px; flex: 1 1 220px; max-width: 420px; padding: 5px 8px; border: 1px solid var(--line);
+    border-radius: 6px; background: var(--bg); font-weight: 600; }
+  .group { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .group > span { color: var(--muted); font-size: 12px; }
+  .actions { display: flex; gap: 8px; padding: 8px 16px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  #wrap { flex: 1; overflow: auto; position: relative; }
+  table { border-collapse: separate; border-spacing: 0; min-width: 100%; }
+  th, td { border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 0; background: var(--bg); }
+  thead th { background: var(--head); position: sticky; z-index: 2; font-weight: 600; text-align: left; vertical-align: top; }
+  thead tr.names th { top: 0; }
+  thead tr.units th { top: var(--h1, 34px); }
+  thead tr.formulas th { top: var(--h2, 68px); }
+  th.rowhead { position: sticky; left: 0; z-index: 1; background: var(--head); width: 56px; min-width: 56px; text-align: right;
+    color: var(--muted); font-weight: 400; padding: 0 6px; white-space: nowrap; }
+  thead th.rowhead { z-index: 3; font-size: 12px; padding-top: 7px; }
+  th.col { min-width: 130px; }
+  .namewrap { display: flex; align-items: center; }
+  input.name, input.unit, input.formula, input.cell {
+    width: 100%; border: 0; border-radius: 0; background: transparent; padding: 6px 8px; min-height: 31px;
+  }
+  input.name { font-weight: 700; }
+  input.unit { color: var(--muted); font-weight: 400; }
+  input.formula { font: 12.5px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-weight: 400; }
+  input.cell { text-align: right; font-variant-numeric: tabular-nums; }
+  input:focus { background: color-mix(in srgb, var(--accent) 12%, var(--bg)); }
+  td.calc { background: var(--calc); }
+  td.calc input { cursor: default; }
+  td.err input, .bad { color: var(--err); }
+  td.err { background: var(--err-bg); }
+  .ferr { color: var(--err); font-size: 11.5px; font-weight: 400; padding: 0 8px 5px; white-space: normal; }
+  .tag { display: inline-block; margin: 6px 8px; font-size: 11.5px; font-weight: 400; color: var(--muted); }
+  .x { border: 0; background: transparent; color: var(--muted); padding: 2px 8px; font-size: 16px; line-height: 1; }
+  .x:hover { color: var(--err); background: transparent; }
+  tr .del { visibility: hidden; margin-right: 2px; }
+  tr:hover .del, tr:focus-within .del { visibility: visible; }
+  #empty { padding: 40px 16px; color: var(--muted); text-align: center; }
+  footer { display: flex; gap: 16px; flex-wrap: wrap; padding: 6px 16px; border-top: 1px solid var(--line);
+    background: var(--head); color: var(--muted); font-size: 12px; }
+  footer .legend::before { content: ""; display: inline-block; width: 10px; height: 10px; margin-right: 6px;
+    background: var(--calc); border: 1px solid var(--line); vertical-align: -1px; }
+  #toasts { position: fixed; right: 16px; bottom: 44px; display: flex; flex-direction: column; gap: 8px; z-index: 10; max-width: min(460px, 92vw); }
+  .toast { padding: 9px 12px; border-radius: 8px; background: var(--fg); color: var(--bg); box-shadow: var(--shadow); }
+  .toast.error { background: var(--err); color: #fff; }
+  dialog { border: 1px solid var(--line); border-radius: 10px; padding: 18px; width: min(440px, 92vw); background: var(--bg);
+    color: var(--fg); box-shadow: var(--shadow); }
+  dialog::backdrop { background: rgba(10, 15, 25, .45); }
+  dialog h2 { margin: 0 0 12px; font-size: 16px; }
+  dialog label { display: block; margin: 10px 0 3px; font-weight: 600; font-size: 13px; }
+  dialog input { width: 100%; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); }
+  dialog .hint { color: var(--muted); font-size: 12px; margin-top: 4px; }
+  dialog .error { color: var(--err); margin-top: 8px; min-height: 1.4em; }
+  dialog .buttons { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">Open-ExAO <small>preuve de concept</small></div>
+  <input id="title" data-key="title" aria-label="Titre du projet" maxlength="120" autocomplete="off" spellcheck="false">
+  <div class="group">
+    <button id="btn-new">Nouveau</button>
+    <button id="btn-demo">Exemple</button>
+    <button id="btn-open">Ouvrir…</button>
+    <input id="file" type="file" accept=".csv,.tsv,.txt,.exao" hidden>
+  </div>
+  <div class="group">
+    <span>Enregistrer :</span>
+    <button id="btn-save" class="primary" title="Ctrl+S">Projet (.exao)</button>
+    <button id="btn-csv" title="Séparateur « ; » et virgule décimale : s'ouvre dans Excel ou LibreOffice en français">CSV (français)</button>
+    <button id="btn-csv-intl" title="Séparateur « , » et point décimal">CSV (international)</button>
+  </div>
+</header>
+<div class="actions">
+  <button id="btn-add-data">＋ Colonne de données</button>
+  <button id="btn-add-calc">＋ Colonne calculée</button>
+  <button id="btn-add-row">＋ Ligne</button>
+</div>
+<div id="wrap"></div>
+<footer>
+  <span id="count"></span>
+  <span class="legend">colonne calculée par une formule (non modifiable à la main)</span>
+  <span>Astuce : copiez des cellules depuis un tableur et collez-les dans la grille.</span>
+</footer>
+<div id="toasts" role="status" aria-live="polite"></div>
+
+<dialog id="dlg">
+  <h2 id="dlg-title"></h2>
+  <label for="dlg-name">Nom de la colonne</label>
+  <input id="dlg-name" autocomplete="off" spellcheck="false" placeholder="ex. t">
+  <div class="hint">Lettres, chiffres et _ ; sans commencer par un chiffre. Les formules citent la colonne par ce nom.</div>
+  <label for="dlg-unit">Unité (facultatif)</label>
+  <input id="dlg-unit" autocomplete="off" spellcheck="false" placeholder="ex. s">
+  <div id="dlg-formula-block" hidden>
+    <label for="dlg-formula">Formule</label>
+    <input id="dlg-formula" autocomplete="off" spellcheck="false" placeholder="ex. 0.5*9.81*t^2">
+    <div class="hint">Point décimal. Opérations + − * / ^ ( ), fonctions sqrt abs sin cos tan asin acos atan atan2 exp ln log10 pow min max, constante pi.</div>
+  </div>
+  <div class="error" id="dlg-error" role="alert"></div>
+  <div class="buttons">
+    <button id="dlg-cancel">Annuler</button>
+    <button id="dlg-ok" class="primary">Ajouter</button>
+  </div>
+</dialog>
+
+<script>
+"use strict";
+const TOKEN = "__EXAO_TOKEN__";
+let state = null;     // dernier état renvoyé par le serveur (le noyau fait foi)
+let dirty = false;    // modifications non enregistrées
+let queue = Promise.resolve();
+
+const $ = (id) => document.getElementById(id);
+const wrap = $("wrap");
+
+// Construit un élément sans jamais passer par innerHTML : le contenu des fichiers
+// (noms de colonnes, unités…) est toujours traité comme du texte.
+function h(tag, props = {}, ...kids) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(props)) {
+    if (k === "class") el.className = v;
+    else if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
+    else if (v === true) el.setAttribute(k, "");
+    else if (v !== false && v != null) el.setAttribute(k, v);
+  }
+  for (const kid of kids.flat()) if (kid != null) el.append(kid);
+  return el;
+}
+
+function toast(message, kind = "info") {
+  const el = h("div", { class: "toast " + kind }, message);
+  $("toasts").append(el);
+  setTimeout(() => el.remove(), kind === "error" ? 8000 : 5000);
+}
+
+async function request(path, options = {}) {
+  const response = await fetch(path, {
+    ...options,
+    headers: { "X-Exao-Token": TOKEN, "Content-Type": "application/json" },
+  });
+  if (!response.ok) throw new Error(await response.text());
+  return response.json();
+}
+
+// Envoie une commande au serveur ; les commandes sont traitées l'une après l'autre.
+// Renvoie { ok, error } et met l'affichage à jour (en cas d'erreur : retour à l'état du noyau).
+function run(command) {
+  const task = queue.then(async () => {
+    try {
+      const result = await request("/api/command", { method: "POST", body: JSON.stringify(command) });
+      if (result.ok) {
+        state = result.state;
+        if (!["new", "demo", "open"].includes(command.op)) dirty = true;
+        else dirty = false;
+        for (const message of result.messages || []) toast(message, command.op === "open" ? "info" : "error");
+      } else {
+        toast(result.error, "error");
+      }
+      render();
+      return result;
+    } catch (error) {
+      toast("Le serveur ne répond pas : " + error.message, "error");
+      return { ok: false, error: String(error) };
+    }
+  });
+  queue = task.catch(() => {});
+  return task;
+}
+
+// ---------- affichage ----------
+
+function keyOf(el) { return el && el.dataset ? el.dataset.key : undefined; }
+
+function render() {
+  if (!state) return;
+  // Mémorise le champ actif (et ce qui y a été tapé) pour le retrouver après la reconstruction.
+  const active = document.activeElement;
+  const activeKey = active && active !== document.body && wrap.contains(active) ? keyOf(active) : undefined;
+  const typed = activeKey ? { value: active.value, from: active.selectionStart, to: active.selectionEnd } : null;
+
+  const titleInput = $("title");
+  if (document.activeElement !== titleInput) titleInput.value = state.title;
+  titleInput.dataset.orig = state.title;
+  document.title = state.title + " — Open-ExAO";
+  $("count").textContent = `${state.rows} ligne${state.rows > 1 ? "s" : ""} × ${state.columns.length} colonne${state.columns.length > 1 ? "s" : ""}`;
+
+  if (state.columns.length === 0) {
+    wrap.replaceChildren(h("div", { id: "empty" }, "Le tableau n'a pas encore de colonne. Utilisez « ＋ Colonne de données » pour commencer."));
+    return;
+  }
+  const cols = state.columns;
+  const head1 = h("tr", { class: "names" }, h("th", { class: "rowhead" }, "n°"));
+  const head2 = h("tr", { class: "units" }, h("th", { class: "rowhead" }, "unité"));
+  const head3 = h("tr", { class: "formulas" }, h("th", { class: "rowhead" }, "formule"));
+  cols.forEach((col, c) => {
+    head1.append(h("th", { class: "col" }, h("div", { class: "namewrap" },
+      headerInput("name", c, col.name, `Nom de la colonne ${col.name}`, (v) => ({ op: "rename_column", col: c, name: v })),
+      h("button", { class: "x", title: "Supprimer la colonne", "aria-label": `Supprimer la colonne ${col.name}`, onclick: () => removeColumn(c) }, "×"))));
+    head2.append(h("th", {}, headerInput("unit", c, col.unit, `Unité de ${col.name}`, (v) => ({ op: "set_unit", col: c, unit: v }), "unité")));
+    if (col.formula === null) {
+      head3.append(h("th", {}, h("span", { class: "tag" }, "données saisies")));
+    } else {
+      const input = headerInput("formula", c, col.formula, `Formule de ${col.name}`, (v) => ({ op: "set_formula", col: c, formula: v }));
+      if (col.error) { input.classList.add("bad"); input.title = col.error; }
+      head3.append(h("th", {}, input, col.error ? h("div", { class: "ferr" }, col.error) : null));
+    }
+  });
+  const body = h("tbody");
+  for (let r = 0; r < state.rows; r++) {
+    const tr = h("tr", {}, h("th", { class: "rowhead" },
+      h("button", { class: "x del", title: "Supprimer la ligne", "aria-label": `Supprimer la ligne ${r + 1}`, onclick: () => run({ op: "remove_row", row: r }) }, "×"),
+      String(r + 1)));
+    cols.forEach((col, c) => tr.append(cell(c, r, col)));
+    body.append(tr);
+  }
+  const table = h("table", {}, h("thead", {}, head1, head2, head3), body);
+  wrap.replaceChildren(table);
+  table.style.setProperty("--h1", head1.offsetHeight + "px");
+  table.style.setProperty("--h2", head1.offsetHeight + head2.offsetHeight + "px");
+
+  if (activeKey) {
+    const el = wrap.querySelector(`[data-key="${activeKey}"]`);
+    if (el) {
+      el.focus({ preventScroll: true });
+      if (!el.readOnly && typed.value !== el.value) el.value = typed.value; // saisie en cours : on la garde
+      try { el.setSelectionRange(typed.from, typed.to); } catch (_) {}
+    }
+  }
+}
+
+function headerInput(kind, c, value, label, makeCommand, placeholder) {
+  const input = h("input", { class: kind, type: "text", autocomplete: "off", spellcheck: "false", "aria-label": label,
+    "data-key": `${kind}:${c}`, placeholder });
+  input.value = value;
+  input.dataset.orig = value;
+  const commit = () => {
+    if (input.value === input.dataset.orig) return;
+    input.dataset.orig = input.value;
+    run(makeCommand(input.value));
+  };
+  input.addEventListener("blur", commit);
+  input.addEventListener("keydown", (ev) => { if (ev.key === "Enter") { ev.preventDefault(); input.blur(); } });
+  return input;
+}
+
+function cell(c, r, col) {
+  const data = state.cells[c][r];
+  const computed = col.formula !== null;
+  const input = h("input", { class: "cell", type: "text", inputmode: computed ? undefined : "decimal", autocomplete: "off",
+    spellcheck: "false", "data-key": `c:${c}:${r}`, "aria-label": `${col.name}, ligne ${r + 1}` });
+  const td = h("td", { class: computed ? (data.k === "e" ? "calc err" : "calc") : "" }, input);
+  if (computed) {
+    input.readOnly = true;
+    input.value = data.d;
+    if (data.k === "n") input.title = data.e; // valeur exacte
+  } else {
+    input.value = data.e;
+    input.dataset.orig = data.e;
+    input.addEventListener("blur", () => commitCell(input, c, r, true));
+    input.addEventListener("paste", (ev) => onPaste(ev, c, r));
+  }
+  input.addEventListener("keydown", (ev) => onKey(ev, input, c, r, computed));
+  input.addEventListener("focus", () => input.select());
+  return td;
+}
+
+// Dernier texte refusé par le noyau. Après un refus, le champ garde ce qui a été tapé pour
+// qu'on puisse le corriger ; en quittant la cellule, on revient à la valeur valide sans
+// répéter le message d'erreur.
+let rejected = null;
+
+async function commitCell(input, c, r, leaving = false) {
+  if (input.value === input.dataset.orig) return true;
+  const text = input.value;
+  if (leaving && rejected && rejected.key === keyOf(input) && rejected.text === text) {
+    rejected = null;
+    input.value = input.dataset.orig;
+    return false;
+  }
+  input.dataset.orig = text;
+  const result = await run({ op: "set_cell", col: c, row: r, text });
+  rejected = result.ok ? null : { key: keyOf(input), text };
+  return result.ok;
+}
+
+function focusCell(c, r) {
+  const el = wrap.querySelector(`[data-key="c:${c}:${r}"]`);
+  if (!el) return;
+  el.focus({ preventScroll: true });
+  el.scrollIntoView({ block: "nearest", inline: "nearest" });
+}
+
+async function onKey(ev, input, c, r, computed) {
+  if (!["Enter", "ArrowDown", "ArrowUp"].includes(ev.key)) return;
+  ev.preventDefault();
+  const step = ev.key === "ArrowUp" || (ev.key === "Enter" && ev.shiftKey) ? -1 : 1;
+  if (!computed && !(await commitCell(input, c, r))) { focusCell(c, r); return; }
+  let next = r + step;
+  if (next < 0) return;
+  if (next >= state.rows) {
+    if (ev.key !== "Enter") return;        // Entrée sur la dernière ligne : on en ajoute une
+    if (!(await run({ op: "add_row" })).ok) return;
+    next = state.rows - 1;
+  }
+  focusCell(c, next);
+}
+
+// Collage d'un bloc de cellules copié depuis un tableur (tabulations et retours à la ligne).
+function onPaste(ev, c, r) {
+  const text = (ev.clipboardData || window.clipboardData).getData("text/plain");
+  if (!/[\t\n]/.test(text.replace(/\r?\n$/, ""))) return;   // une seule valeur : collage normal
+  ev.preventDefault();
+  const block = text.replace(/\r?\n$/, "").split(/\r?\n/).map((line) => line.split("\t"));
+  run({ op: "paste", col: c, row: r, block }).then((res) => {
+    if (res.ok) toast(`${block.length} ligne${block.length > 1 ? "s" : ""} collée${block.length > 1 ? "s" : ""}.`);
+  });
+}
+
+// ---------- actions ----------
+
+function removeColumn(c) {
+  const name = state.columns[c].name;
+  if (confirm(`Supprimer la colonne « ${name} » et toutes ses valeurs ?`)) run({ op: "remove_column", col: c });
+}
+
+function confirmReplace() {
+  return !dirty || confirm("Remplacer le tableau actuel ? Les modifications non enregistrées seront perdues.");
+}
+
+function download(kind) {
+  const link = h("a", { href: `/api/export?kind=${kind}&t=${encodeURIComponent(TOKEN)}` });
+  document.body.append(link);
+  link.click();
+  link.remove();
+  if (kind === "exao") dirty = false;
+}
+
+async function readFileText(file) {
+  const bytes = await file.arrayBuffer();
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch (_) {
+    // CSV enregistré par Excel sous Windows : codage « ANSI » (windows-1252)
+    toast("Fichier non UTF-8 : lu en windows-1252 (Excel sous Windows).");
+    return new TextDecoder("windows-1252").decode(bytes);
+  }
+}
+
+$("btn-new").onclick = () => { if (confirmReplace()) run({ op: "new" }); };
+$("btn-demo").onclick = () => { if (confirmReplace()) run({ op: "demo" }); };
+$("btn-open").onclick = () => { if (confirmReplace()) $("file").click(); };
+$("file").onchange = async (ev) => {
+  const file = ev.target.files[0];
+  ev.target.value = "";
+  if (!file) return;
+  if (file.size > 15 * 1024 * 1024) { toast("Fichier trop volumineux (15 Mo au maximum).", "error"); return; }
+  const result = await run({ op: "open", name: file.name, content: await readFileText(file) });
+  if (result.ok) toast(`« ${file.name} » ouvert.`);
+};
+$("btn-save").onclick = () => download("exao");
+$("btn-csv").onclick = () => download("csv");
+$("btn-csv-intl").onclick = () => download("csv-intl");
+$("btn-add-row").onclick = () => run({ op: "add_row" });
+$("title").addEventListener("blur", (ev) => {
+  if (ev.target.value !== ev.target.dataset.orig) run({ op: "set_title", title: ev.target.value });
+});
+$("title").addEventListener("keydown", (ev) => { if (ev.key === "Enter") ev.target.blur(); });
+window.addEventListener("keydown", (ev) => {
+  if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === "s") { ev.preventDefault(); download("exao"); }
+});
+window.addEventListener("beforeunload", (ev) => { if (dirty) { ev.preventDefault(); ev.returnValue = ""; } });
+
+// ---------- fenêtre d'ajout de colonne ----------
+
+const dlg = $("dlg");
+let dlgKind = "data";
+function openColumnDialog(kind) {
+  dlgKind = kind;
+  $("dlg-title").textContent = kind === "data" ? "Nouvelle colonne de données" : "Nouvelle colonne calculée";
+  $("dlg-formula-block").hidden = kind === "data";
+  for (const id of ["dlg-name", "dlg-unit", "dlg-formula"]) $(id).value = "";
+  $("dlg-error").textContent = "";
+  dlg.showModal();
+  $("dlg-name").focus();
+}
+async function submitColumnDialog() {
+  const name = $("dlg-name").value.trim(), unit = $("dlg-unit").value;
+  const command = dlgKind === "data"
+    ? { op: "add_data_column", name, unit }
+    : { op: "add_computed_column", name, unit, formula: $("dlg-formula").value };
+  const response = await run(command);
+  if (response.ok) dlg.close(); else $("dlg-error").textContent = response.error || "Échec.";
+}
+$("btn-add-data").onclick = () => openColumnDialog("data");
+$("btn-add-calc").onclick = () => openColumnDialog("calc");
+$("dlg-cancel").onclick = () => dlg.close();
+$("dlg-ok").onclick = submitColumnDialog;
+dlg.addEventListener("keydown", (ev) => {
+  if (ev.key === "Enter" && ev.target.tagName === "INPUT") { ev.preventDefault(); submitColumnDialog(); }
+});
+
+// ---------- démarrage ----------
+
+request("/api/state").then((result) => { state = result.state; render(); })
+  .catch((error) => toast("Impossible de charger le tableau : " + error.message, "error"));
+</script>
+</body>
+</html>

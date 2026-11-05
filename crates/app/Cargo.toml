@@ -1,0 +1,20 @@
+[package]
+name = "openexao-app"
+description = "Open-ExAO, application locale : un tableur de mesures dans le navigateur, servi depuis votre ordinateur"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[lib]
+name = "openexao_app"
+path = "src/lib.rs"
+
+[[bin]]
+name = "openexao-app"
+path = "src/main.rs"
+
+[dependencies]
+openexao-core = { path = "../core" }
+
+[lints]
+workspace = true

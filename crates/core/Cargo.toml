@@ -1,0 +1,11 @@
+[package]
+name = "openexao-core"
+description = "Noyau d'Open-ExAO : tableau de mesures, formules, CSV et fichier de projet"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+# Aucune dépendance externe : le noyau ne dépend que de la bibliothèque standard.
+
+[lints]
+workspace = true
